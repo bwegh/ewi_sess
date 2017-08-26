@@ -87,5 +87,6 @@ to_pid(Pid) when is_pid(Pid) ->
 to_pid(#{pid := Pid}) ->
     Pid.
 
-to_session(#state{uuid = Id, token = Token, data = Data}) ->
-    #{pid => self(), uuid => Id, token => Token, data => Data}.
+to_session(#state{uuid = Id, token = Token, data = Data, timeout = Timeout}) ->
+    #{pid => self(), uuid => Id, token => Token, data => Data,
+      timeout => Timeout}.

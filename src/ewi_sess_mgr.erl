@@ -3,9 +3,11 @@
 -behaviour(gen_server).
 -export([
          lookup_session/1,
+         does_session_exist/1,
          new_session/0,
          new_session/1,
          close_all_sessions/0,
+         stop/0,
 
          session_closing/0,
 
@@ -27,6 +29,12 @@ lookup_session(Token) ->
     Result = ets:lookup(?ETS, Token),
     return_lookup_result(Result).
 
+does_session_exist(#{token := Token}) ->
+    does_session_exist(Token);
+does_session_exist(Token) ->
+    Result = ets:lookup(?ETS, Token),
+    length(Result) == 1.
+
 new_session() ->
     new_session(false, undefined).
 
@@ -43,6 +51,9 @@ session_closing() ->
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, noparams, []).
 
+stop() ->
+    gen_server:call(?MODULE, stop).
+
 init(noparams) ->
     ewi_sess_token = ets:new(ewi_sess_token, [set, protected, named_table]),
     EtsUuid = ets:new(ewi_sess_id, [set, private]),
@@ -57,19 +68,14 @@ handle_call(new_session, _From, State) ->
 handle_call(session_closing, {Pid, _}, State) ->
     ok = delete_session(Pid, State),
     {reply, ok, State};
-handle_call(close_all_sessions, _From,
-            #state{ets_uuid = EtsUuid, ets_pid = EtsPid} = State) ->
-    true = ets:delete_all_objects(?ETS),
-    true = ets:delete_all_objects(EtsUuid),
-    Delete = fun({Pid, _, _}, _) ->
-                     ok = ewi_sess_session:shutdown(Pid),
-                     ok
-             end,
-    ok = ets:foldl(Delete, ok, EtsPid),
-    true = ets:delete_all_objects(EtsPid),
+handle_call(close_all_sessions, _From, State) ->
+    ok = close_all_sessions(State),
     {reply, ok, State};
+handle_call(stop,  _, State) ->
+    ok = close_all_sessions(State),
+    {stop, normal, ok, State};
 handle_call(_,  _, State) ->
-    {ok, ignored, State}.
+    {reply, ignored, State}.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -132,6 +138,16 @@ maybe_delete_entries([{_, Uuid, Token}], #state{ets_uuid = EtsUuid}) ->
 maybe_delete_entries(_, _) ->
     ok.
 
+close_all_sessions(#state{ets_uuid = EtsUuid, ets_pid = EtsPid}) ->
+    true = ets:delete_all_objects(?ETS),
+    true = ets:delete_all_objects(EtsUuid),
+    Delete = fun({Pid, _, _}, _) ->
+                     ok = ewi_sess_session:shutdown(Pid),
+                     ok
+             end,
+    ok = ets:foldl(Delete, ok, EtsPid),
+    true = ets:delete_all_objects(EtsPid),
+    ok.
 
 
 return_lookup_result([]) ->
