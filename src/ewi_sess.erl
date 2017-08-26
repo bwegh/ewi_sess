@@ -116,12 +116,6 @@ handle_session_result(_) ->
 create_cookie(Name, Value, MaxAge) when is_list(Value); is_binary(Value) ->
     Opts = cookie_opts(MaxAge),
     psycho_util:cookie_header(Name, Value, Opts);
-    %% case application:get_env(acc_srv,ssl) of
-    %%     true ->
-    %%         [{secure, true} | BasicOpts];
-    %%     _ ->
-    %%         BasicOpts
-    %% end.
 create_cookie(Name, _Value, _MaxAge) ->
     Opts = cookie_opts(0),
     psycho_util:cookie_header(Name, "deleted", Opts).
