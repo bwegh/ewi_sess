@@ -1,0 +1,10 @@
+{"1.1.0",
+[{<<"base64url">>,{pkg,<<"base64url">>,<<"0.0.1">>},0},
+ {<<"quickrand">>,{pkg,<<"quickrand">>,<<"1.7.1">>},1},
+ {<<"uuid">>,{pkg,<<"uuid_erl">>,<<"1.7.1">>},0}]}.
+[
+{pkg_hash,[
+ {<<"base64url">>, <<"36A90125F5948E3AFD7BE97662A1504B934DD5DAC78451CA6E9ABF85A10286BE">>},
+ {<<"quickrand">>, <<"B0C2A41D08C955F055C44BED357660DE443CD9068A33ABA530076910B7333659">>},
+ {<<"uuid">>, <<"252D12D1154BC75C40BC03E2E67714BD843DDFAD40FD3BC1541F65F622C9E7FC">>}]}
+].

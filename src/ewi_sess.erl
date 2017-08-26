@@ -2,35 +2,33 @@
 
 %% API exports
 -export([
-         start/0,
-         new_session/0
-         %% get_session/1,
-         %% close_session/1,
-         %% close_all_sessions/0
+         start_link/0,
+         new_session/0,
+         new_session/1,
+         get_session/1,
+         close_session/1,
+         close_all_sessions/0
         ]).
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
-start() ->
-    create_table_if_needed().
+start_link() ->
+    application:ensure_all_started(?MODULE),
+    supervisor:start_link(ewi_sess_sup, []).
 
 new_session() ->
-    ok.
+    ewi_sess_mgr:new_session().
 
+new_session(Data) ->
+    ewi_sess_mgr:new_session(Data).
 
+get_session(Token) ->
+    ewi_sess_mgr:lookup_session(Token).
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
--define(TABLE, ewi_sess_table).
+close_session(Session) ->
+    ewi_sess_session:close(Session).
 
-create_table_if_needed() ->
-    create_table_if_undefined(ets:info(?TABLE)).
-
-create_table_if_undefined(undefined) ->
-    ?TABLE = ets:new(?TABLE, [named_table]),
-    ok;
-create_table_if_undefined(_) ->
-    ok.
+close_all_sessions() ->
+    ewi_sess_mgr:close_all_sessions().

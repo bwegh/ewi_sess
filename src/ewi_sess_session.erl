@@ -6,6 +6,9 @@
          get_session/1,
          close/1,
 
+         shutdown/1,
+
+         start_link/1,
          init/1,
          handle_call/3,
          handle_cast/2,
@@ -28,37 +31,50 @@ get_session(Session) ->
 close(Session) ->
     gen_server:call(to_pid(Session), close).
 
+shutdown(Pid) when is_pid(Pid) ->
+    gen_server:cast(Pid, shutdown).
 
--record(state,{ id = undefined,
+-record(state,{ uuid = undefined,
                 token = undefined,
                 data = undefined,
-                closing = false
+                closing = false,
+                timeout = infinity
               }).
 
+start_link(Config) ->
+    gen_server:start_link(?MODULE, Config, []).
 
-init(#{id := Id, token := Token}) ->
-    {ok, #state{id = Id, token = Token}}.
+init(#{uuid := Id, token := Token}) ->
+    Timeout = application:get_env(ewi_sess, timeout, 15 * 60 * 1000),
+    {ok, #state{uuid = Id, token = Token, timeout = Timeout}}.
 
-handle_call(_Msg, _From, #state{closing = true}) ->
-    {error, closing};
-handle_call(get_session, _From, State) ->
-    {reply, {ok, to_session(State)}, State};
-handle_call(get_data, _From, #state{data = Data} = State) ->
-    {reply, {ok, Data}, State};
-handle_call({set_data, Data}, _From, State) ->
-    {reply, ok, State#state{data = Data}};
-handle_call(close, _From, State) ->
-    %% TODO: implement
-    {reply, ok, State#state{closing = true}};
-handle_call(_Msg, _From, State) ->
-    {reply, ignored, State}.
+handle_call(_Msg, _From, #state{closing = true, timeout = Timeout} = State) ->
+    {reply, {error, closing}, State, Timeout};
+handle_call(get_session, _From, #state{timeout = Timeout} = State) ->
+    {reply, {ok, to_session(State)}, State, Timeout};
+handle_call(get_data, _From, #state{data = Data, timeout = Timeout} = State) ->
+    {reply, {ok, Data}, State, Timeout};
+handle_call({set_data, Data}, _From, #state{timeout = Timeout} = State) ->
+    {reply, ok, State#state{data = Data}, Timeout};
+handle_call(close, _From, #state{timeout = Timeout} = State) ->
+    {reply, ok, close_session(State), Timeout};
+handle_call(_Msg, _From, #state{timeout = Timeout} = State) ->
+    {reply, ignored, State, Timeout}.
 
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+handle_cast(shutdown, State) ->
+    {stop, normal, State};
+handle_cast(_Msg, #state{timeout = Timeout} = State) ->
+    {noreply, State, Timeout}.
 
-handle_info(_Msg, State) ->
-    {noreply, State}.
+handle_info(timeout, State) ->
+    {noreply, close_session(State), 2000};
+handle_info(_Msg, #state{timeout = Timeout} = State) ->
+    {noreply, State, Timeout}.
 
+close_session(State) ->
+    ok = ewi_sess_mgr:session_closing(),
+    shutdown(self()),
+    State#state{closing = true}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -71,5 +87,5 @@ to_pid(Pid) when is_pid(Pid) ->
 to_pid(#{pid := Pid}) ->
     Pid.
 
-to_session(#state{id = Id, token = Token, data = Data}) ->
-    #{id => Id, token => Token, data => Data}.
+to_session(#state{uuid = Id, token = Token, data = Data}) ->
+    #{pid => self(), uuid => Id, token => Token, data => Data}.
