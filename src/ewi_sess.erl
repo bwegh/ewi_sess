@@ -82,13 +82,13 @@ cookie_action(false, true) ->
 cookie_action(_, _) ->
     none.
 
-maybe_set_cookie(set, Name, #{timeout := Timeout, toke := Token}, Headers) ->
+maybe_set_cookie(set, Name, #{timeout := Timeout, token := Token}, Headers) ->
     CookieHeader = create_cookie(Name, Token, Timeout),
     [ CookieHeader | Headers ];
 maybe_set_cookie(clear, Name, _, Headers) ->
     CookieHeader = create_cookie(Name, deleted, 0),
     [ CookieHeader | Headers ];
-maybe_set_cookie(_, _, _, Headers) ->
+maybe_set_cookie(none, _, _, Headers) ->
     Headers.
 
 update_env(undefined, Env) ->
