@@ -29,11 +29,14 @@ new_session() ->
 new_session(Data) ->
     ewi_sess_mgr:new_session(Data).
 
+get_session(#{token := Token}) ->
+    get_session(Token);
 get_session(Token) ->
     ewi_sess_mgr:lookup_session(Token).
 
 update_session(Data, Session) ->
-    ewi_sess_session:set_data(Data, Session).
+    ok = ewi_sess_session:set_data(Data, Session),
+    ewi_sess_session:get_session(Session).
 
 does_session_exist(Token) ->
     ewi_sess_mgr:does_session_exist(Token).

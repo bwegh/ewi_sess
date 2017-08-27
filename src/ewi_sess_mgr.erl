@@ -104,7 +104,7 @@ maybe_add_data(false, _, _) ->
 
 gen_id_token(#state{ets_uuid = EtsUuid} = State) ->
     Length = application:get_env(ewi_sess, token_length, 128),
-    Uuid = uuid:uuid_to_string(uuid:get_v4()),
+    Uuid = uuid:uuid_to_string(uuid:get_v4(), binary_standard ),
     Token = base64url:encode(crypto:strong_rand_bytes(Length)),
     UuidRes = ets:lookup(EtsUuid, Uuid),
     TokenResult = ets:lookup(?ETS, Token),
