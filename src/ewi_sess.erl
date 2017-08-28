@@ -73,7 +73,10 @@ handle_session_app({{Code, _} = Status, Headers, Body}, CookieName, Session) ->
     SuccessCode = (Code >= 200) and (Code < 400),
     CookieAction = cookie_action(Exists, SuccessCode),
     NewHeaders = maybe_set_cookie(CookieAction, CookieName, Session, Headers),
-    {Status, NewHeaders, Body}.
+    {Status, NewHeaders, Body};
+handle_session_app(Other, _, _) ->
+    Other.
+
 
 cookie_action(true, true) ->
     set;
