@@ -51,7 +51,7 @@ timeout_test() ->
     {ok, Meck} = start_meck(),
     try
         Config = #{uuid => "", token => <<>>},
-        application:set_env(ewi_sess, timeout, 400),
+        application:set_env(ewi_sess, sess_duration, 1),
         {ok, Pid} = ewi_sess_session:start_link(Config),
         {ok, undefined} = ewi_sess_session:get_data(Pid),
         ok = ewi_sess_session:set_data(testdata, Pid),
@@ -59,7 +59,7 @@ timeout_test() ->
         {ok, Session} = ewi_sess_session:get_session(Pid),
         testdata = maps:get(data, Session),
 
-        timer:sleep(500),
+        timer:sleep(1500),
         ok = test_utils:wait_for_process_to_die(Pid, 10)
     after
         stop_meck(Meck)

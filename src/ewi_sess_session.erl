@@ -3,6 +3,7 @@
 -export([
          set_data/2,
          get_data/1,
+         keep_alive/1,
          get_session/1,
          close/1,
 
@@ -27,6 +28,8 @@ set_data(Data, Session) ->
 get_session(Session) ->
     gen_server:call(to_pid(Session),get_session).
 
+keep_alive(Session) ->
+    gen_server:call(to_pid(Session), keep_alive).
 
 close(Session) ->
     gen_server:call(to_pid(Session), close).
@@ -34,42 +37,53 @@ close(Session) ->
 shutdown(Pid) when is_pid(Pid) ->
     gen_server:cast(Pid, shutdown).
 
+-ifdef(TEST).
+-define(TIMEOUT, 100).
+-else.
+-define(TIMEOUT, 2000).
+-endif.
+
 -record(state,{ uuid = undefined,
                 token = undefined,
                 data = undefined,
                 closing = false,
-                timeout = infinity
+                skip_cookie = false,
+                timeout = 0,
+                sess_duration = infinity
               }).
 
 start_link(Config) ->
     gen_server:start_link(?MODULE, Config, []).
 
 init(#{uuid := Id, token := Token}) ->
-    Timeout = application:get_env(ewi_sess, timeout, 15 * 60 * 1000),
-    {ok, #state{uuid = Id, token = Token, timeout = Timeout}}.
+    SessDuration = application:get_env(ewi_sess, sess_duration, 15 * 60),
+    {ok, new_timeout(#state{uuid = Id, token = Token,
+                            sess_duration = SessDuration})}.
 
-handle_call(_Msg, _From, #state{closing = true, timeout = Timeout} = State) ->
-    {reply, {error, closing}, State, Timeout};
-handle_call(get_session, _From, #state{timeout = Timeout} = State) ->
-    {reply, {ok, to_session(State)}, State, Timeout};
-handle_call(get_data, _From, #state{data = Data, timeout = Timeout} = State) ->
-    {reply, {ok, Data}, State, Timeout};
-handle_call({set_data, Data}, _From, #state{timeout = Timeout} = State) ->
-    {reply, ok, State#state{data = Data}, Timeout};
-handle_call(close, _From, #state{timeout = Timeout} = State) ->
-    {reply, ok, close_session(State), Timeout};
-handle_call(_Msg, _From, #state{timeout = Timeout} = State) ->
-    {reply, ignored, State, Timeout}.
+handle_call(_Msg, _From, #state{closing = true} = State) ->
+    {reply, {error, closing}, State, 2000};
+handle_call(get_session, _From, State) ->
+    {reply, {ok, to_session(State)}, State, ?TIMEOUT};
+handle_call(keep_alive, _From, State) ->
+    {reply, ok, new_timeout(State), ?TIMEOUT};
+handle_call(get_data, _From, #state{data = Data} = State) ->
+    {reply, {ok, Data}, State, ?TIMEOUT};
+handle_call({set_data, Data}, _From, State) ->
+    {reply, ok, State#state{data = Data},  ?TIMEOUT};
+handle_call(close, _From, State) ->
+    {reply, ok, close_session(State),  ?TIMEOUT};
+handle_call(_Msg, _From, State) ->
+    {reply, ignored, State,  ?TIMEOUT}.
 
 handle_cast(shutdown, State) ->
     {stop, normal, State};
-handle_cast(_Msg, #state{timeout = Timeout} = State) ->
-    {noreply, State, Timeout}.
+handle_cast(_Msg, State) ->
+    {noreply, State, ?TIMEOUT}.
 
 handle_info(timeout, State) ->
-    {noreply, close_session(State), 2000};
-handle_info(_Msg, #state{timeout = Timeout} = State) ->
-    {noreply, State, Timeout}.
+    maybe_close_session(State, erlang:system_time(seconds));
+handle_info(_Msg, State) ->
+    {noreply, State, ?TIMEOUT}.
 
 close_session(State) ->
     ok = ewi_sess_mgr:session_closing(),
@@ -87,6 +101,20 @@ to_pid(Pid) when is_pid(Pid) ->
 to_pid(#{pid := Pid}) ->
     Pid.
 
-to_session(#state{uuid = Id, token = Token, data = Data, timeout = Timeout}) ->
+new_timeout(#state{sess_duration = Duration} = State) ->
+    NewTimeout = erlang:system_time(seconds) + Duration,
+    State#state{timeout = NewTimeout}.
+
+
+maybe_close_session(#state{timeout = Timeout} = State, Now)
+  when Now >= Timeout ->
+    {noreply, close_session(State), 2000};
+maybe_close_session(State, _Now) ->
+    {noreply, State, ?TIMEOUT}.
+
+
+
+to_session(#state{uuid = Id, token = Token, data = Data, timeout = Timeout,
+                  skip_cookie = SkipCookie}) ->
     #{pid => self(), uuid => Id, token => Token, data => Data,
-      timeout => Timeout}.
+      timeout => Timeout, skip_cookie => SkipCookie }.

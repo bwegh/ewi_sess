@@ -15,14 +15,14 @@ start_stop_test() ->
 
 session_timeout_test() ->
     {ok, Meck} = start_meck(),
-    application:set_env(ewi_sess, timeout, 400),
+    application:set_env(ewi_sess, sess_duration, 1),
     {ok, Pid} = ewi_sess_mgr:start_link(),
     try
 
         {ok, Session} = ewi_sess_mgr:new_session(),
         true = is_map(Session),
         true = ewi_sess_mgr:does_session_exist(Session),
-        timer:sleep(500),
+        timer:sleep(1500),
         false = ewi_sess_mgr:does_session_exist(Session)
 
     after
