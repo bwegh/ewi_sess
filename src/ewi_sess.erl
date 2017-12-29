@@ -6,6 +6,7 @@
          new_session/0,
          new_session/1,
          get_session/1,
+         keep_alive/1,
          update_session/2,
          does_session_exist/1,
          close_session/1,
@@ -33,6 +34,9 @@ get_session(#{token := Token}) ->
     get_session(Token);
 get_session(Token) ->
     ewi_sess_mgr:lookup_session(Token).
+
+keep_alive(Session) ->
+    ewi_sess_session:keep_alive(Session).
 
 update_session(Data, Session) ->
     ok = ewi_sess_session:set_data(Data, Session),
